@@ -1,0 +1,70 @@
+#import libraries
+import math
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from keras.models import Sequential
+from keras.layers import Dense
+import matplotlib.pyplot as plt
+#load dataset
+df = pd.read_csv('/content/BTC-USD (7).csv')
+#normalization
+data= df.filter(['Close'])
+dataset=data.values
+scaler = MinMaxScaler(feature_range=(0,1))
+scaled_data = scaler.fit_transform(dataset)
+scaled_data
+#Split the data into training and testing sets
+train_size = int(len(scaled_data) * 0.8)
+train_data= data[:train_size]
+test_data=data[train_size:] 
+# Create the input and output data
+def create_dataset(dataset):
+    dataX,dataY = [], []
+    for i in range(len(dataset)-30):
+        dataX.append(dataset.iloc[i:(i+30)])
+        dataY.append(dataset.iloc[i + 30])
+    return np.array(dataX), np.array(dataY)
+
+trainX, trainY = create_dataset(train_data)
+testX, testY = create_dataset(test_data)
+# Build the neural network model
+model = Sequential()
+model.add(Dense(64, activation='relu', input_dim=30))
+model.add(Dense(32, activation='relu'))
+model.add(Dense(16, activation='relu'))
+model.add(Dense(1))
+model.compile(optimizer='adam', loss='mape')
+# Train the model
+history=model.fit(trainX, trainY, epochs=100, batch_size=32)
+# Plot the training loss values
+plt.plot(history.history['loss'])
+plt.title('Model Accuracy')
+plt.ylabel('Loss')
+plt.xlabel('Epoch')
+plt.show()
+# Evaluate the model
+trainScore = model.evaluate(trainX, trainY, verbose=0)
+print('Train Score: %.2f MAPE' %(trainScore))
+testScore = model.evaluate(testX, testY, verbose=0)
+print('Test Score: %.2f MAPE' % (testScore))
+# Predict the future 30 days
+future_preds = []
+if len(testX) >= 30:
+    future_X = testX[-1]
+    for i in range(30):
+        future_pred = model.predict(future_X.reshape(1, 30))
+        future_preds.append(future_pred[0])
+        future_X = np.append(future_X[1:], future_pred)
+  
+else:
+    print("Error: test_X doesn't have enough elements.")
+
+#print 
+for prediction in future_preds:
+    print(prediction[0])
+#print the price in INR
+INR_ONE=82.69
+INR_Prices=[INR_ONE*prediction[0] for prediction in future_preds]
+for num in INR_Prices:
+  print(round(num,2))
